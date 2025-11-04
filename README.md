@@ -234,20 +234,20 @@ kubectl get hpa -n adk-triage-agent
 ```mermaid
 flowchart TD
     A[Start: TriageAgent init] --> B{Load submission}
-    B -->|XML file| C[Parse & normalize data]
+    B -->|XML file| C[Parse and normalize data]
     C --> D{Start session?}
     D -->|Yes| E[Create chat context]
     D -->|No| F[Return error]
     E --> G[Receive user message]
-    G --> H[Preprocess message (intent, entities)]
+    G --> H[Preprocess message]
     H --> I[Call Google GenAI API]
     I --> J[Merge AI response into context]
     J --> K{Needs follow-up?}
     K -->|Yes| G
-    K -->|No| L[Generate assessment & suggestions]
-    L --> M[Persist result → outputs/*.json]
-    M --> N[Emit logs & metrics]
-    N --> O[End session / return response]
+    K -->|No| L[Generate assessment and suggestions]
+    L --> M[Persist result to outputs]
+    M --> N[Emit logs and metrics]
+    N --> O[End session and return response]
     F --> O
 ```
 

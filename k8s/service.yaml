@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: adk-triage-agent-service
+  namespace: adk-triage-agent
+  labels:
+    app: adk-triage-agent
+spec:
+  type: LoadBalancer
+  selector:
+    app: adk-triage-agent
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  sessionAffinity: ClientIP

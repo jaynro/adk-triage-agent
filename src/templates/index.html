@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADK Triage Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #667eea;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin-bottom: 10px;
+        }
+        
+        .file-selection {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #ddd;
+        }
+        
+        .file-selection label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .file-selection select {
+            padding: 10px;
+            border: 2px solid #667eea;
+            border-radius: 5px;
+            font-size: 16px;
+            min-width: 300px;
+        }
+        
+        .chat-container {
+            display: none;
+            padding: 20px;
+        }
+        
+        .chat-container.active {
+            display: block;
+        }
+        
+        .chat-area {
+            height: 400px;
+            overflow-y: auto;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            background: #f9f9f9;
+            margin-bottom: 20px;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            max-width: 80%;
+            word-wrap: break-word;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .user-message {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        
+        .agent-message {
+            background: white;
+            color: #333;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .tool-call {
+            background: #fff3cd;
+            color: #856404;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            margin: 5px 0;
+        }
+        
+        .input-area {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        #messageInput {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            outline: none;
+            font-size: 16px;
+        }
+        
+        #messageInput:focus {
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 10px;
+            color: #667eea;
+            font-style: italic;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏢 ADK Triage Agent</h1>
+            <p>Interactive Insurance Submission Triage Assistant</p>
+        </div>
+        
+        <div class="file-selection">
+            <label for="fileSelect">Select Submission:</label>
+            <select id="fileSelect" onchange="loadSubmission()">
+                <option value="">-- Choose a file --</option>
+            </select>
+        </div>
+        
+        <div class="chat-container" id="chatContainer">
+            <h3>💬 Chat with Assistant</h3>
+            <div class="chat-area" id="chatArea">
+                <div class="message agent-message">
+                    Hello! I've loaded the submission. How can I help you analyze it?
+                </div>
+            </div>
+            
+            <div class="loading" id="loading">Processing...</div>
+            
+            <div class="input-area">
+                <input type="text" id="messageInput" placeholder="Ask about the submission..." 
+                       onkeypress="handleKeyPress(event)">
+                <button class="btn btn-primary" onclick="sendMessage()" id="sendBtn">Send</button>
+            </div>
+            
+            <div class="actions">
+                <button class="btn btn-secondary" onclick="requestSummary()">📋 Get Summary</button>
+                <button class="btn btn-secondary" onclick="requestSuggestion()">💡 Suggest Risk Level</button>
+                <button class="btn btn-success" onclick="confirmAssessment()">✅ Confirm & Save</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentSubmissionId = null;
+        
+        // Load available files on page load
+        window.onload = async function() {
+            try {
+                const response = await fetch('/api/files');
+                const files = await response.json();
+                
+                const select = document.getElementById('fileSelect');
+                files.forEach(file => {
+                    const option = document.createElement('option');
+                    option.value = file;
+                    option.textContent = file;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading files:', error);
+                alert('Error loading files. Please check the server.');
+            }
+        };
+        
+        async function loadSubmission() {
+            const fileSelect = document.getElementById('fileSelect');
+            const filename = fileSelect.value;
+            
+            if (!filename) {
+                document.getElementById('chatContainer').classList.remove('active');
+                return;
+            }
+            
+            showLoading(true);
+            
+            try {
+                // Start chat session
+                const response = await fetch('/api/start-chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                
+                currentSubmissionId = data.submission_id;
+                
+                // Show chat area
+                document.getElementById('chatContainer').classList.add('active');
+                document.getElementById('chatArea').innerHTML = '';
+                
+                addMessage('agent', 'Hello! I\'ve loaded the submission. How can I help you analyze it?');
+            } catch (error) {
+                alert('Error starting chat: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !currentSubmissionId) return;
+            
+            addMessage('user', message);
+            input.value = '';
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        submission_id: currentSubmissionId,
+                        message: message
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    addMessage('agent', '❌ Error: ' + data.error);
+                } else {
+                    addMessage('agent', data.response);
+                }
+            } catch (error) {
+                addMessage('agent', '❌ Error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        async function requestSummary() {
+            document.getElementById('messageInput').value = 
+                'Please provide a comprehensive summary of this insurance submission, including key details and risk factors.';
+            await sendMessage();
+        }
+        
+        async function requestSuggestion() {
+            if (!currentSubmissionId) return;
+            
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/api/suggest-risk', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ submission_id: currentSubmissionId })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    addMessage('agent', '❌ Error: ' + data.error);
+                } else {
+                    addMessage('agent', '💡 Risk Assessment Suggestion:\n\n' + data.suggestion);
+                }
+            } catch (error) {
+                addMessage('agent', '❌ Error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        async function confirmAssessment() {
+            if (!currentSubmissionId) return;
+            
+            const riskLevel = prompt('Confirm risk level (Low/Medium/High):');
+            
+            if (!riskLevel) return;
+            
+            const notes = prompt('Additional notes (optional):') || '';
+            
+            showLoading(true);
+            
+            try {
+                const response = await fetch('/api/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        submission_id: currentSubmissionId,
+                        risk_level: riskLevel,
+                        notes: notes
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    addMessage('agent', '✅ Assessment saved successfully to: ' + data.output_file);
+                    alert('✅ Assessment saved!\nFile: ' + data.output_file);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        function addMessage(role, text) {
+            const chatArea = document.getElementById('chatArea');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}-message`;
+            messageDiv.textContent = text;
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+        
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            if (show) {
+                loading.classList.add('active');
+                sendBtn.disabled = true;
+            } else {
+                loading.classList.remove('active');
+                sendBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

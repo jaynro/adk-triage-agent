@@ -1,0 +1,52 @@
+# Cloud Build configuration for automated deployments
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/adk-triage-agent:$SHORT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/adk-triage-agent:latest'
+      - '.'
+
+  # Push the Docker image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/adk-triage-agent:$SHORT_SHA'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/adk-triage-agent:latest'
+
+  # Deploy to GKE
+  - name: 'gcr.io/cloud-builders/gke-deploy'
+    args:
+      - 'run'
+      - '--filename=k8s/deployment.yaml'
+      - '--filename=k8s/service.yaml'
+      - '--filename=k8s/hpa.yaml'
+      - '--image=gcr.io/$PROJECT_ID/adk-triage-agent:$SHORT_SHA'
+      - '--location=${_GKE_REGION}'
+      - '--cluster=${_GKE_CLUSTER}'
+      - '--namespace=adk-triage-agent'
+
+# Configuration
+options:
+  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+
+# Substitutions
+substitutions:
+  _GKE_CLUSTER: 'adk-triage-cluster'
+  _GKE_REGION: 'us-central1'
+
+# Images to be pushed to Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/adk-triage-agent:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/adk-triage-agent:latest'
+
+# Tags for organization
+tags: ['adk-triage-agent', 'gke', 'production']

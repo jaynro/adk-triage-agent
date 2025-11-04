@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adk-triage-agent
+  namespace: adk-triage-agent
+  labels:
+    app: adk-triage-agent
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: adk-triage-agent
+  template:
+    metadata:
+      labels:
+        app: adk-triage-agent
+    spec:
+      containers:
+      - name: adk-triage-agent
+        image: gcr.io/YOUR_PROJECT_ID/adk-triage-agent:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: GOOGLE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: adk-triage-secrets
+              key: GOOGLE_API_KEY
+        - name: GOOGLE_GENAI_USE_VERTEXAI
+          valueFrom:
+            secretKeyRef:
+              name: adk-triage-secrets
+              key: GOOGLE_GENAI_USE_VERTEXAI
+        - name: PORT
+          value: "8080"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
